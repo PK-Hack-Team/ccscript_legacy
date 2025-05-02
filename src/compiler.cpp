@@ -1,7 +1,7 @@
 /* compiler class implementation */
 
 #include "compiler.h"
-
+#include <iostream>
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -19,6 +19,7 @@
 #include "exception.h"
 #include "util.h"
 #include "fs.h"
+#include "utf8.h"
 
 using namespace std;
 
@@ -232,7 +233,7 @@ void Compiler::Compile()
 
 		DoDelayedWrites();
 	}
-	catch(Exception& e)
+	catch(const Exception& e)
 	{
 		Error(e.GetMessage());
 	}
@@ -287,6 +288,7 @@ void Compiler::ProcessImports()
 
 			// If the imported module doesn't exist already, load it
 			if(!imp) {
+				std::cout << "Trying to load module: " << filename << std::endl;
 				imp = FindAndLoadModule( filename, module_dir.string() );
 
 				// We'll need to process the newly loaded module's imports as well
@@ -701,7 +703,13 @@ void Compiler::WriteSummary(std::ostream& out)
 		std::map<string,Anchor*>::const_iterator j;
 		for(j = jumps.begin(); j != jumps.end(); ++j) {
 			// Skip internal labels
-			if(j->first.empty() || !isalpha(j->first.at(0)))
+			const auto & s = j->first;
+			if(s.empty()) {
+				continue;
+			}
+			size_t offset = 0;
+			auto cp = utf8::utf8to32(s, offset);
+			if(cp == '_' || !util::IsIdentifierStart(cp))
 				continue;
 
 			out << left << setw(28) << j->first << ' ';
